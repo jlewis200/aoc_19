@@ -4,14 +4,75 @@ from math import gcd
 import numpy as np
 
 
+class Coord:
+
+    y_range = None
+    x_range = None
+
+    def __init__(self, y, x):
+        self.y = int(y)
+        self.x = int(x)
+        self._hash = None
+
+    def __add__(self, other):
+        return Coord(self.y + other.y, self.x + other.x)
+
+    def __sub__(self, other):
+        return Coord(self.y - other.y, self.x - other.x)
+
+    def __mul__(self, other):
+        return Coord(self.y * other, self.x * other)
+
+    def __hash__(self):
+        if self._hash is None:
+            self._hash = (1000003 * self.x) ^ self.y
+        return self._hash
+
+    def __eq__(self, other):
+        if not isinstance(other, Coord):
+            return False
+        return self.y == other.y and self.x == other.x
+
+    def __repr__(self):
+        return f"{self.y}\t{self.x}"
+
+    def gcd_reduce(self):
+        """
+        Reduce the y/x coord by the greatest common divisor.  Ex:
+
+         2,  2 ->  1,  1
+        -3, -9 -> -1, -3
+        """
+        if self.y == 0 or self.x == 0:
+            divisor = max(abs(self.y), abs(self.x), 1)
+        else:
+            divisor = gcd(self.y, self.x)
+
+        return Coord(self.y // divisor, self.x // divisor)
+
+    @classmethod
+    def set_ranges(cls, asteroids):
+        y_max = max(asteroid.y for asteroid in asteroids)
+        x_max = max(asteroid.x for asteroid in asteroids)
+        cls.y_range = range(y_max + 1)
+        cls.x_range = range(x_max + 1)
+
+    def valid(self):
+        return self.y in self.y_range and self.x in self.x_range
+
+
 def solve(board):
     asteroids = np.argwhere(board == "#")
-    asteroids = {tuple(asteroid) for asteroid in asteroids}
+    asteroids = {Coord(*asteroid) for asteroid in asteroids}
+    Coord.set_ranges(asteroids)
     max_viewable, max_asteroid = get_central_asteroid(asteroids)
     return max_viewable
 
 
 def get_central_asteroid(asteroids):
+    """
+    Find the asteroid with the best view of the other asteroids.
+    """
     max_viewable = 0
     max_asteroid = None
 
@@ -26,62 +87,41 @@ def get_central_asteroid(asteroids):
 
 
 def find_viewable(asteroids, asteroid):
+    """
+    Find the number of asteroids visible from the specified asteroid.
+    """
     n_viewable = 0
 
     for asteroid_1 in asteroids:
-
-        if asteroid == asteroid_1:
-            continue
-
-        if unblocked(asteroids, asteroid, asteroid_1):
+        if asteroid != asteroid_1 and not blocked(asteroids, asteroid, asteroid_1):
             n_viewable += 1
 
     return n_viewable
 
 
-def get_ranges(asteroids):
-    y_max = max(y for y, _ in asteroids)
-    x_max = max(x for _, x in asteroids)
-    return range(y_max + 1), range(x_max + 1)
-
-
-def reduce(dy, dx):
+def blocked(asteroids, asteroid, asteroid_1):
     """
-    Reduce the deltas by the greatest common divisor.  Ex:
-
-     2,  2 ->  1,  1
-    -3, -9 -> -1, -3
+    Check if the path between two asteroids is blocked.  Travel from one
+    asteroid to the other.  If the next asteroid encountered is the other
+    asteroid, the path is not blocked.
     """
-    if dy == 0 or dx == 0:
-        divisor = max(abs(dy), abs(dx), 1)
-    else:
-        divisor = gcd(dy, dx)
+    delta = (asteroid_1 - asteroid).gcd_reduce()
 
-    return dy // divisor, dx // divisor
+    if asteroid_1 == find_next_asteroid(asteroids, asteroid, delta):
+        return False
 
-
-def unblocked(asteroids, asteroid, asteroid_1):
-    y_range, x_range = get_ranges(asteroids)
-
-    dy, dx = asteroid_1[0] - asteroid[0], asteroid_1[1] - asteroid[1]
-    dy, dx = reduce(dy, dx)
-
-    for modifier in (1, -1):
-        y, x = asteroid
-        dy, dx = dy * modifier, dx * modifier
-
-        while valid_coord(y, x, y_range, x_range):
-            y, x = y + dy, x + dx
-
-            if (y, x) == asteroid_1:
-                return True
-
-            elif (y, x) in asteroids:
-                return False
+    return True
 
 
-def valid_coord(y, x, y_range, x_range):
-    return y in y_range and x in x_range
+def find_next_asteroid(asteroids, coord, delta):
+    """
+    Find the next asteroid from coord with travelling along delta direction.
+    """
+    while coord.valid():
+        coord += delta
+
+        if coord in asteroids:
+            return coord
 
 
 def parse(lines):
