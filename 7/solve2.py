@@ -21,32 +21,11 @@ class Opcode:
     TERMINATE = 99
 
 
-def solve(program):
-    max_signal = 0
-
-    for phase_sequence in permutations([0, 1, 2, 3, 4]):
-        signal = 0
-
-        for phase in phase_sequence:
-            interpreter = Interpreter(program)
-            signal = get_signal(interpreter, phase, signal)
-
-        max_signal = max(max_signal, signal)
-
-    return max_signal
-
-
-def get_signal(program, phase, input_signal):
-    input_queue = deque([phase, input_signal])
-    output_queue = program.run(input_queue)
-    return output_queue.pop()
-
-
 class Interpreter:
 
     def __init__(self, program):
         self.ip = 0
-        self.program = program
+        self.program = program.copy()
         self.input_queue = deque()
         self.output_queue = deque()
         self.state = "initialized"
@@ -69,7 +48,7 @@ class Interpreter:
         self.state = "running"
         self.input_queue.extend(input_queue)
 
-        while self.state not in ("terminated", "imput_blocking"):
+        while self.state not in ("terminated", "input_blocking"):
             self.process_instruction()
 
         return self.output_queue
@@ -86,7 +65,9 @@ class Interpreter:
         try:
             input_value = self.input_queue.popleft()
         except IndexError:
-            return None
+            self.state = "input_blocking"
+            return
+
         p_destination = self.get_args(arg_types=("out",))
         self.program[p_destination] = input_value
 
@@ -214,6 +195,49 @@ class Interpreter:
         return args
 
 
+def solve(program):
+    max_signal = 0
+
+    for phase_sequence in permutations([5, 6, 7, 8, 9]):
+        signal = evaluate_phase_sequence(program, phase_sequence)
+        max_signal = max(max_signal, signal)
+
+    return max_signal
+
+
+def evaluate_phase_sequence(program, phase_sequence):
+    signal = 0
+    interpreters = initialize_interpreters(program, phase_sequence)
+
+    while any(interpreter.state != "terminated" for interpreter in interpreters):
+        signal = perform_round(interpreters, signal)
+
+    return signal
+
+
+def perform_round(interpreters, signal):
+    for interpreter in interpreters:
+        signal = get_signal(interpreter, signal)
+
+    return signal
+
+
+def get_signal(interpreter, signal):
+    output_queue = interpreter.run(deque([signal]))
+    return output_queue.pop()
+
+
+def initialize_interpreters(program, phase_sequence):
+    interpreters = []
+
+    for phase in phase_sequence:
+        interpreter = Interpreter(program)
+        interpreter.run(deque([phase]))
+        interpreters.append(interpreter)
+
+    return interpreters
+
+
 def parse(line):
     return list(map(int, line.strip().split(",")))
 
@@ -231,7 +255,6 @@ def main(filename, expected=None):
 
 
 if __name__ == "__main__":
-    main("test_0.txt", 43210)
-    main("test_1.txt", 54321)
-    main("test_2.txt", 65210)
-    main("input.txt", 206580)
+    main("test_3.txt", 139629729)
+    main("test_4.txt", 18216)
+    main("input.txt")
