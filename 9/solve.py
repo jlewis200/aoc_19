@@ -233,9 +233,9 @@ class Interpreter:
         return args
 
 
-def solve(program):
+def solve(program, input_queue):
     interpreter = Interpreter(program)
-    return interpreter.run(deque([1]))
+    return interpreter.run(input_queue)
 
 
 def parse(line):
@@ -247,8 +247,8 @@ def read_file(filename):
         return f_in.read()
 
 
-def main(filename, expected=None):
-    result = solve(parse(read_file(filename)))
+def main(filename, input_queue=[], expected=None):
+    result = solve(parse(read_file(filename)), input_queue)
     print(result)
     if expected is not None:
         assert result == expected
@@ -258,4 +258,5 @@ if __name__ == "__main__":
     main("test_0.txt")
     main("test_1.txt")
     main("test_2.txt")
-    main("input.txt")
+    main("input.txt", deque([1]))
+    main("input.txt", deque([2]))
