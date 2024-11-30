@@ -21,13 +21,6 @@ class Opcode:
     TERMINATE = 99
 
 
-@dataclass
-class Args:
-    instruction: int
-    args: list[int] = None
-    p_destination: int = None
-
-
 def solve(program):
     max_signal = 0
 
@@ -56,7 +49,7 @@ class Interpreter:
         self.program = program
         self.input_queue = deque()
         self.output_queue = deque()
-        self.terminated = False
+        self.state = "initialized"
 
     def __str__(self):
         string = f"ip:\t{self.ip}\n"
@@ -75,65 +68,63 @@ class Interpreter:
     def run(self, input_queue):
         self.input_queue.extend(input_queue)
 
-        while not self.terminated:
+        while self.state not in ("terminated", "imput_blocking"):
             self.process_instruction()
 
         return self.output_queue
 
     def add(self):
-        args = self.get_args(arg_types=("in", "in", "out"))
-        self.program[args.p_destination] = sum(args.args)
+        arg_0, arg_1, p_destination = self.get_args(arg_types=("in", "in", "out"))
+        self.program[p_destination] = arg_0 + arg_1
 
     def mult(self):
-        args = self.get_args(arg_types=("in", "in", "out"))
-        self.program[args.p_destination] = prod(args.args)
+        arg_0, arg_1, p_destination = self.get_args(arg_types=("in", "in", "out"))
+        self.program[p_destination] = arg_0 * arg_1
 
     def input(self):
         try:
             input_value = self.input_queue.popleft()
         except IndexError:
             return None
-        args = self.get_args(arg_types=("out",))
-        self.program[args.p_destination] = input_value
+        p_destination = self.get_args(arg_types=("out",))
+        self.program[p_destination] = input_value
 
     def output(self):
-        args = self.get_args(arg_types=("in",))
-        self.output_queue.append(args.args[0])
+        arg = self.get_args(arg_types=("in",))
+        self.output_queue.append(arg)
 
     def jump_not_zero(self):
-        args = self.get_args(arg_types=("in", "in"))
-        if args.args[0] != 0:
-            self.ip = args.args[1]
+        arg, destination = self.get_args(arg_types=("in", "in"))
+        if arg != 0:
+            self.ip = destination
 
     def jump_zero(self):
-        args = self.get_args(arg_types=("in", "in"))
-        if args.args[0] == 0:
-            self.ip = args.args[1]
+        arg, destination = self.get_args(arg_types=("in", "in"))
+        if arg == 0:
+            self.ip = destination
 
     def less_than(self):
-        args = self.get_args(arg_types=("in", "in", "out"))
-        if args.args[0] < args.args[1]:
-            self.program[args.p_destination] = 1
+        arg_0, arg_1, p_destination = self.get_args(arg_types=("in", "in", "out"))
+        if arg_0 < arg_1:
+            self.program[p_destination] = 1
         else:
-            self.program[args.p_destination] = 0
+            self.program[p_destination] = 0
 
     def equal(self):
-        args = self.get_args(arg_types=("in", "in", "out"))
-        if args.args[0] == args.args[1]:
-            self.program[args.p_destination] = 1
+        arg_0, arg_1, p_destination = self.get_args(arg_types=("in", "in", "out"))
+        if arg_0 == arg_1:
+            self.program[p_destination] = 1
         else:
-            self.program[args.p_destination] = 0
+            self.program[p_destination] = 0
 
     def terminate(self):
-        self.terminated = True
-        return None
+        self.state = "terminated"
 
     def error(self):
         print(self)
         raise ValueError
 
     def process_instruction(self):
-
         match self.get_opcode(self.program[self.ip]):
 
             case Opcode.ADD:
@@ -212,15 +203,14 @@ class Interpreter:
                 args.append(self.get_arg(self.ip, parameter_mode))
 
             elif arg_type == "out":
-                p_destination = self.get_arg(self.ip, IMMEDIATE_MODE)
+                args.append(self.get_arg(self.ip, IMMEDIATE_MODE))
 
         self.ip += 1
 
-        return Args(
-            instruction=instruction,
-            p_destination=p_destination,
-            args=args,
-        )
+        if len(args) == 1:
+            return args.pop()
+
+        return args
 
 
 def parse(line):
