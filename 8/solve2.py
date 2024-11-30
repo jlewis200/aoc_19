@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 
+from itertools import product
 import numpy as np
 
 
 def solve(image):
-    min_zeros = 2**32
-    min_layer = None
+    rendered_image = np.zeros(shape=(image.shape[1:]), dtype=str)
 
-    for layer in image:
-        zero_count = (layer == 0).sum()
+    for y, x in product(range(image.shape[1]), range(image.shape[2])):
+        depth_slice = image[:, y, x]
+        depth_slice = depth_slice[depth_slice != 2]
+        rendered_image[y, x] = "#" if depth_slice[0] == 1 else " "
 
-        if zero_count < min_zeros:
-            min_layer = layer
-            min_zeros = zero_count
+    print(image_str(rendered_image))
 
-    one_count = (min_layer == 1).sum()
-    two_count = (min_layer == 2).sum()
-    return one_count * two_count
+
+def image_str(image):
+    image_string = ""
+
+    for row in image:
+        for element in row:
+            image_string += element
+        image_string += "\n"
+    return image_string
 
 
 def parse(data, width, height):
@@ -42,5 +48,5 @@ def main(filename, width, height, expected=None):
 
 
 if __name__ == "__main__":
-    main("test.txt", 3, 2, 1)
+    main("test2.txt", 2, 2)
     main("input.txt", 25, 6)
