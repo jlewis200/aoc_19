@@ -48,7 +48,7 @@ def process_instruction(program, ip, input_queue, output_queue):
         case 4:
             args = get_args(program, ip, arg_count=1)
             output_queue.append(program[args.p_destination])
-    
+
     print(args)
     return args.next_ip
 
@@ -85,6 +85,7 @@ def get_args(program, ip, arg_count):
         p_destination=args.pop(),
         args=args,
     )
+
 
 def parse(line):
     return list(map(int, line.strip().split(",")))
