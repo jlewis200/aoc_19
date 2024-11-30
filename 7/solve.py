@@ -23,23 +23,20 @@ class Opcode:
 
 @dataclass
 class Args:
-
-    ip: int
-    next_ip: int
     instruction: int
     args: list[int] = None
     p_destination: int = None
 
 
 def solve(program):
-    program = Program(program)
     max_signal = 0
 
     for phase_sequence in permutations([0, 1, 2, 3, 4]):
         signal = 0
 
         for phase in phase_sequence:
-            signal = get_signal(program, phase, signal)
+            interpreter = Interpreter(program)
+            signal = get_signal(interpreter, phase, signal)
 
         max_signal = max(max_signal, signal)
 
@@ -52,16 +49,18 @@ def get_signal(program, phase, input_signal):
     return output_queue.pop()
 
 
-class Program:
+class Interpreter:
 
     def __init__(self, program):
-        self.program = None
-        self.original_program = program
-        self.input_queue = None
+        self.ip = 0
+        self.program = program
+        self.input_queue = deque()
         self.output_queue = deque()
+        self.terminated = False
 
     def __str__(self):
-        string = "\t" + "\t".join("0123456789") + "\n"
+        string = f"ip:\t{self.ip}\n"
+        string += "\t" + "\t".join("0123456789") + "\n"
         string += "-" * 90
 
         for idx, value in enumerate(self.program):
@@ -74,59 +73,98 @@ class Program:
         return string
 
     def run(self, input_queue):
-        ip = 0
-        self.program = self.original_program.copy()
-        self.input_queue = input_queue
+        self.input_queue.extend(input_queue)
 
-        while self.program[ip] != Opcode.TERMINATE:
-            ip = self.process_instruction(ip)
+        while not self.terminated:
+            self.process_instruction()
 
         return self.output_queue
 
-    def process_instruction(self, ip):
-        match self.get_opcode(self.program[ip]):
+    def add(self):
+        args = self.get_args(arg_types=("in", "in", "out"))
+        self.program[args.p_destination] = sum(args.args)
+
+    def mult(self):
+        args = self.get_args(arg_types=("in", "in", "out"))
+        self.program[args.p_destination] = prod(args.args)
+
+    def input(self):
+        try:
+            input_value = self.input_queue.popleft()
+        except IndexError:
+            return None
+        args = self.get_args(arg_types=("out",))
+        self.program[args.p_destination] = input_value
+
+    def output(self):
+        args = self.get_args(arg_types=("in",))
+        self.output_queue.append(args.args[0])
+
+    def jump_not_zero(self):
+        args = self.get_args(arg_types=("in", "in"))
+        if args.args[0] != 0:
+            self.ip = args.args[1]
+
+    def jump_zero(self):
+        args = self.get_args(arg_types=("in", "in"))
+        if args.args[0] == 0:
+            self.ip = args.args[1]
+
+    def less_than(self):
+        args = self.get_args(arg_types=("in", "in", "out"))
+        if args.args[0] < args.args[1]:
+            self.program[args.p_destination] = 1
+        else:
+            self.program[args.p_destination] = 0
+
+    def equal(self):
+        args = self.get_args(arg_types=("in", "in", "out"))
+        if args.args[0] == args.args[1]:
+            self.program[args.p_destination] = 1
+        else:
+            self.program[args.p_destination] = 0
+
+    def terminate(self):
+        self.terminated = True
+        return None
+
+    def error(self):
+        print(self)
+        raise ValueError
+
+    def process_instruction(self):
+
+        match self.get_opcode(self.program[self.ip]):
 
             case Opcode.ADD:
-                args = self.get_args(ip, arg_types=("in", "in", "out"))
-                self.program[args.p_destination] = sum(args.args)
+                self.add()
 
             case Opcode.MULT:
-                args = self.get_args(ip, arg_types=("in", "in", "out"))
-                self.program[args.p_destination] = prod(args.args)
+                self.mult()
 
             case Opcode.INPUT:
-                args = self.get_args(ip, arg_types=("out",))
-                self.program[args.p_destination] = self.input_queue.popleft()
+                self.input()
 
             case Opcode.OUTPUT:
-                args = self.get_args(ip, arg_types=("in",))
-                self.output_queue.append(args.args[0])
+                self.output()
 
             case Opcode.JUMP_NOT_ZERO:
-                args = self.get_args(ip, arg_types=("in", "in"))
-                if args.args[0] != 0:
-                    args.next_ip = args.args[1]
+                self.jump_not_zero()
 
             case Opcode.JUMP_ZERO:
-                args = self.get_args(ip, arg_types=("in", "in"))
-                if args.args[0] == 0:
-                    args.next_ip = args.args[1]
+                self.jump_zero()
 
             case Opcode.LESS_THAN:
-                args = self.get_args(ip, arg_types=("in", "in", "out"))
-                if args.args[0] < args.args[1]:
-                    self.program[args.p_destination] = 1
-                else:
-                    self.program[args.p_destination] = 0
+                self.less_than()
 
             case Opcode.EQUAL:
-                args = self.get_args(ip, arg_types=("in", "in", "out"))
-                if args.args[0] == args.args[1]:
-                    self.program[args.p_destination] = 1
-                else:
-                    self.program[args.p_destination] = 0
+                self.equal()
 
-        return args.next_ip
+            case Opcode.TERMINATE:
+                self.terminate()
+
+            case _:
+                self.error()
 
     @staticmethod
     def get_opcode(instruction):
@@ -148,7 +186,7 @@ class Program:
 
         return self.program[address]
 
-    def get_args(self, ip, arg_types):
+    def get_args(self, arg_types):
         """
         Arg types:
             in: possibly dereferenced
@@ -161,25 +199,24 @@ class Program:
         """
         assert isinstance(arg_types, (tuple, list))
 
-        old_ip = ip
-        instruction = self.program[ip]
+        instruction = self.program[self.ip]
         args = []
         p_destination = None
-        parameter_modes = self.get_parameter_modes(self.program[ip])
+        parameter_modes = self.get_parameter_modes(self.program[self.ip])
 
         for arg_type in arg_types:
-            ip += 1
+            self.ip += 1
             parameter_mode = next(parameter_modes)
 
             if arg_type == "in":
-                args.append(self.get_arg(ip, parameter_mode))
+                args.append(self.get_arg(self.ip, parameter_mode))
 
             elif arg_type == "out":
-                p_destination = self.get_arg(ip, IMMEDIATE_MODE)
+                p_destination = self.get_arg(self.ip, IMMEDIATE_MODE)
+
+        self.ip += 1
 
         return Args(
-            ip=old_ip,
-            next_ip=ip + 1,
             instruction=instruction,
             p_destination=p_destination,
             args=args,
@@ -196,9 +233,7 @@ def read_file(filename):
 
 
 def main(filename, expected=None):
-    result = solve(
-        parse(read_file(filename)),
-    )
+    result = solve(parse(read_file(filename)))
     print(result)
     if expected is not None:
         assert result == expected
@@ -208,4 +243,4 @@ if __name__ == "__main__":
     main("test_0.txt", 43210)
     main("test_1.txt", 54321)
     main("test_2.txt", 65210)
-    main("input.txt")
+    main("input.txt", 206580)
