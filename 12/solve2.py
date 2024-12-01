@@ -7,43 +7,32 @@ import numpy as np
 
 def solve(positions, steps):
     """
-    Get the cycle lengths for each dimension.  The least common multiple will
-    be the first time every dimension state is exactly the same as the initial.
-    Because it is cyclic, the first possible cycle will occur at the initial
-    state.
-    """
-    lengths = []
-
-    for idx in range(3):
-        lengths.append(cycle_length(positions.copy(), steps, idx))
-
-    return lcm(*lengths)
-
-
-def cycle_length(positions, steps, idx):
-    """
-    Assume that if two consective x/y/z positions in isolation completely define
-    a state.  I don't think this is correct in general, but it works for this
-    input.  A cycle is detected when a previous state results in the same next
-    state.  Return the number of steps requried to induce the cycle.
+    The position and velocities of each dimension are independent of the other
+    dimensions.  The overall cycle will be a multiple of the per-dimension
+    cycles.  The cycles are found by treating the per-dimension positions and
+    velocities as a state and adding to a set.  The loop is terminated when all
+    dimension sets no longer grows.  The least common multiple will of the
+    per-dimension set lengths will be the first time every dimension state is
+    exactly the same as the initial.
     """
     velocities = np.zeros_like(positions)
-    cache = set()
-    prev = tuple(positions[:, idx])
-    prev_cache_size = len(cache)
+    x_cache = set()
+    y_cache = set()
+    z_cache = set()
+    x_vector = tuple(positions[:, 0]) + tuple(velocities[:, 0])
+    y_vector = tuple(positions[:, 1]) + tuple(velocities[:, 1])
+    z_vector = tuple(positions[:, 2]) + tuple(velocities[:, 2])
 
-    for _ in range(steps):
+    while x_vector not in x_cache or y_vector not in y_cache or z_vector not in z_cache:
         step(positions, velocities)
-        current = tuple(positions[:, idx])
-        cache.add((prev, current))
+        x_cache.add(x_vector)
+        y_cache.add(y_vector)
+        z_cache.add(z_vector)
+        x_vector = tuple(positions[:, 0]) + tuple(velocities[:, 0])
+        y_vector = tuple(positions[:, 1]) + tuple(velocities[:, 1])
+        z_vector = tuple(positions[:, 2]) + tuple(velocities[:, 2])
 
-        if len(cache) == prev_cache_size:
-            return len(cache)
-
-        prev_cache_size = len(cache)
-        prev = current
-
-    return get_energy(positions, velocities)
+    return lcm(len(x_cache), len(y_cache), len(z_cache))
 
 
 def step(positions, velocities):
