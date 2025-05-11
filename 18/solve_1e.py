@@ -240,10 +240,10 @@ def main(filename):
     """
     assert solve(parse(read_file("test_0.txt"))) == 86
     assert solve(parse(read_file("test_1.txt"))) == 132
-    # assert solve(parse(read_file("test_2.txt"))) == 136
+    assert solve(parse(read_file("test_2.txt"))) == 136
     assert solve(parse(read_file("test_3.txt"))) == 81
     print("solving")
-    # print(solve(parse(read_file(filename))))
+    print(solve(parse(read_file(filename))))
 
 
 if __name__ == "__main__":
