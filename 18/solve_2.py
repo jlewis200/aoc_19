@@ -97,10 +97,7 @@ def solve(board):
         length, *robot_positions, keys = heapq.heappop(queue)
         visited.add((tuple(robot_positions), keys))
 
-        # set key bits for each current robot position
-        for robot_position in robot_positions:
-            keys |= 1 << robot_position
-
+        keys = update_keys(keys, robot_positions)
         # enumerate each of the robots
         for idx, robot_position in enumerate(robot_positions):
 
@@ -138,6 +135,14 @@ def solve(board):
     print(length)
     # breakpoint()
     return length
+
+
+def update_keys(keys, robot_positions):
+    # set key bits for each current robot position
+    for robot_position in robot_positions:
+        keys |= 1 << robot_position
+
+    return keys
 
 
 def initialize_queue():
