@@ -87,40 +87,40 @@ def solve(board):
     dependencies = get_dependencies(board)
 
     queue = []
-    keys = sum(2**idx for idx in range(4))
+    keys = 0
     heapq.heappush(queue, (0, 0, 1, 2, 3, keys))
 
     total_keys = set(range(distance_matrix.shape[0]))
     total_keys = sum(2**key for key in total_keys)
 
-    dependencies_ = [None] * distance_matrix.shape[0]
-    for key, deps in dependencies.items():
-        deps_ = total_keys
-        for dep in deps:
-            deps_ ^= 1 << dep
-        dependencies_[key] = deps_
-
-    dependencies = dependencies_
+    dependencies = bit_vectorize_dependencies(
+        dependencies, distance_matrix.shape[0], total_keys
+    )
 
     visited = set()
+    pending_visit = set()
 
     while keys != total_keys and len(queue) > 0:
         # pprint(queue)
         length, *coord, keys = heapq.heappop(queue)
         coord = tuple(coord)
-        # coord_0, coord_1, coord_2, coord_3 = coord
         visited.add((coord, keys))
 
+        # set key bits for each current robot position
         for coord_ in coord:
             keys |= 1 << coord_
 
+        # enumerate each of the robots
         for idx, coord_ in enumerate(coord):
 
+            # enumerate adjacencies for a robot
             for adjacency in range(distance_matrix.shape[0]):
 
-                if (1 << adjacency) & keys != 0:
+                # skip if we already have the key for the adjacency
+                if ((1 << adjacency) & keys) != 0:
                     continue
 
+                # skip if there is no path to the adjacency
                 if distance_matrix[coord_, adjacency] == INF:
                     continue
 
@@ -133,18 +133,33 @@ def solve(board):
                 if coord_id in visited:
                     continue
 
+                # proceed if we have all of the keys required to travel to the adjacency
                 if dependencies[adjacency] | keys == total_keys:
-                    heapq.heappush(
-                        queue,
-                        (
-                            length + distance_matrix[coord_, adjacency],
-                            *adjacency_,
-                            keys,
-                        ),
+                    next_state = (
+                        length + distance_matrix[coord_, adjacency],
+                        *adjacency_,
+                        keys,
                     )
 
+                    # proceed if the next state is not already pending
+                    if next_state not in pending_visit:
+                        pending_visit.add(next_state)
+                        heapq.heappush(queue, next_state)
+
     print(length)
+    # breakpoint()
     return length
+
+
+def bit_vectorize_dependencies(dependencies, size, total_keys):
+    dependencies_ = [None] * size
+    for key, deps in dependencies.items():
+        deps_ = total_keys
+        for dep in deps:
+            deps_ ^= 1 << dep
+        dependencies_[key] = deps_
+
+    return dependencies_
 
 
 def get_char_map(board):
