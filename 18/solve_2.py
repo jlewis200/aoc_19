@@ -86,24 +86,23 @@ def solve(board):
     distance_matrix = get_shortest_path_matrix(board)
     total_keys = 2 ** distance_matrix.shape[0] - 1
     dependencies = get_dependencies(board, total_keys)
-    queue = initialize_queue()
 
+    queue = initialize_queue()
     visited = set()
     pending_visit = set()
     keys = 0
 
     while keys != total_keys and len(queue) > 0:
         # pprint(queue)
-        length, *coord, keys = heapq.heappop(queue)
-        coord = tuple(coord)
-        visited.add((coord, keys))
+        length, *robot_positions, keys = heapq.heappop(queue)
+        visited.add((tuple(robot_positions), keys))
 
         # set key bits for each current robot position
-        for coord_ in coord:
-            keys |= 1 << coord_
+        for robot_position in robot_positions:
+            keys |= 1 << robot_position
 
         # enumerate each of the robots
-        for idx, coord_ in enumerate(coord):
+        for idx, robot_position in enumerate(robot_positions):
 
             # enumerate adjacencies for a robot
             for adjacency in range(distance_matrix.shape[0]):
@@ -113,22 +112,20 @@ def solve(board):
                     continue
 
                 # skip if there is no path to the adjacency
-                if distance_matrix[coord_, adjacency] == INF:
+                if distance_matrix[robot_position, adjacency] == INF:
                     continue
 
-                adjacency_ = list(coord)
+                adjacency_ = robot_positions.copy()
                 adjacency_[idx] = adjacency
-                adjacency_ = tuple(adjacency_)
+                state = (tuple(adjacency_), keys)
 
-                coord_id = (adjacency_, keys)
-
-                if coord_id in visited:
+                if state in visited:
                     continue
 
                 # proceed if we have all of the keys required to travel to the adjacency
                 if dependencies[adjacency] | keys == total_keys:
                     next_state = (
-                        length + distance_matrix[coord_, adjacency],
+                        length + distance_matrix[robot_position, adjacency],
                         *adjacency_,
                         keys,
                     )
