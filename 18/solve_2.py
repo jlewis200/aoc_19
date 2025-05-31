@@ -90,11 +90,12 @@ def solve(board):
     keys = 0
     heapq.heappush(queue, (0, 0, 1, 2, 3, keys))
 
-    total_keys = set(range(distance_matrix.shape[0]))
-    total_keys = sum(2**key for key in total_keys)
+    total_keys = 2 ** distance_matrix.shape[0] - 1
 
     dependencies = bit_vectorize_dependencies(
-        dependencies, distance_matrix.shape[0], total_keys
+        dependencies,
+        distance_matrix.shape[0],
+        total_keys,
     )
 
     visited = set()
