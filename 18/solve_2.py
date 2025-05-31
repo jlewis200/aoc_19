@@ -87,8 +87,10 @@ def solve(board):
     dependencies = get_dependencies(board)
 
     queue = []
+    length = 0
+    initial_coord = (0, 1, 2, 3)
     keys = 0
-    heapq.heappush(queue, (0, 0, 1, 2, 3, keys))
+    heapq.heappush(queue, (length,) + initial_coord + (keys,))
 
     total_keys = 2 ** distance_matrix.shape[0] - 1
 
