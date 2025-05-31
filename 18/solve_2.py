@@ -84,20 +84,13 @@ class VectorTuple(tuple):
 
 def solve(board):
     distance_matrix = get_shortest_path_matrix(board)
-    dependencies = get_dependencies(board)
-
-    queue = []
-    length = 0
-    initial_coord = (0, 1, 2, 3)
-    keys = 0
-    heapq.heappush(queue, (length,) + initial_coord + (keys,))
-
     total_keys = 2 ** distance_matrix.shape[0] - 1
-
-    dependencies = bit_vectorize_dependencies(dependencies, total_keys)
+    dependencies = get_dependencies(board, total_keys)
+    queue = initialize_queue()
 
     visited = set()
     pending_visit = set()
+    keys = 0
 
     while keys != total_keys and len(queue) > 0:
         # pprint(queue)
@@ -150,6 +143,15 @@ def solve(board):
     return length
 
 
+def initialize_queue():
+    queue = []
+    length = 0
+    initial_coord = (0, 1, 2, 3)
+    keys = 0
+    heapq.heappush(queue, (length,) + initial_coord + (keys,))
+    return queue
+
+
 def bit_vectorize_dependencies(dependencies, total_keys):
     """
     Create a list of bitvectors to encode the dependencies of each key.
@@ -190,7 +192,7 @@ def get_char_map(board):
     return {char: value for value, char in enumerate(chars)}
 
 
-def get_dependencies(board):
+def get_dependencies(board, total_keys):
     """
     Build a map of key to dependencies by tracking doors encountered along the
     path to every key.
@@ -224,7 +226,7 @@ def get_dependencies(board):
 
                     queue.appendleft((adjacency, doors_))
 
-    return dependencies
+    return bit_vectorize_dependencies(dependencies, total_keys)
 
 
 def get_shortest_path_matrix(board):
