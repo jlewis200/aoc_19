@@ -92,11 +92,7 @@ def solve(board):
 
     total_keys = 2 ** distance_matrix.shape[0] - 1
 
-    dependencies = bit_vectorize_dependencies(
-        dependencies,
-        distance_matrix.shape[0],
-        total_keys,
-    )
+    dependencies = bit_vectorize_dependencies(dependencies, total_keys)
 
     visited = set()
     pending_visit = set()
@@ -152,15 +148,27 @@ def solve(board):
     return length
 
 
-def bit_vectorize_dependencies(dependencies, size, total_keys):
-    dependencies_ = [None] * size
-    for key, deps in dependencies.items():
-        deps_ = total_keys
-        for dep in deps:
-            deps_ ^= 1 << dep
-        dependencies_[key] = deps_
+def bit_vectorize_dependencies(dependencies, total_keys):
+    """
+    Create a list of bitvectors to encode the dependencies of each key.
 
-    return dependencies_
+    ex:
+                                  key_0 ------|
+                                  key_2 ----v v
+        vectorized_dependencies[key_3]:  0b1010
+        this means `key_3` requires key_0 and key_2
+    """
+    vectorized_dependencies = [total_keys] * total_keys.bit_length()
+
+    for key, key_dependencies in dependencies.items():
+        vectorized_key_dependencies = total_keys
+
+        for dep in key_dependencies:
+            vectorized_key_dependencies ^= 1 << dep
+
+        vectorized_dependencies[key] = vectorized_key_dependencies
+
+    return vectorized_dependencies
 
 
 def get_char_map(board):
