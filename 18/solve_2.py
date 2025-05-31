@@ -93,11 +93,11 @@ def solve(board):
     keys = 0
 
     while keys != total_keys and len(queue) > 0:
-        # pprint(queue)
-        length, *robot_positions, keys = heapq.heappop(queue)
-        visited.add((tuple(robot_positions), keys))
-
+        length, *state = heapq.heappop(queue)
+        visited.add(tuple(state))
+        *robot_positions, keys = state
         keys = update_keys(keys, robot_positions)
+
         # enumerate each of the robots
         for idx, robot_position in enumerate(robot_positions):
 
@@ -114,7 +114,7 @@ def solve(board):
 
                 adjacency_ = robot_positions.copy()
                 adjacency_[idx] = adjacency
-                state = (tuple(adjacency_), keys)
+                state = tuple(adjacency_) + (keys,)
 
                 if state in visited:
                     continue
@@ -123,8 +123,7 @@ def solve(board):
                 if dependencies[adjacency] | keys == total_keys:
                     next_state = (
                         length + distance_matrix[robot_position, adjacency],
-                        *adjacency_,
-                        keys,
+                        *state,
                     )
 
                     # proceed if the next state is not already pending
@@ -133,7 +132,6 @@ def solve(board):
                         heapq.heappush(queue, next_state)
 
     print(length)
-    # breakpoint()
     return length
 
 
